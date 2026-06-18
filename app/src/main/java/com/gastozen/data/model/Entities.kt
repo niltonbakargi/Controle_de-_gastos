@@ -52,7 +52,8 @@ enum class TipoPagamento  { DINHEIRO, CARTAO_DEBITO, CARTAO_CREDITO, PIX, OUTROS
         Index("contaId"),
         Index("categoriaId"),
         Index("data"),
-        Index("grupoParcela")
+        Index("grupoParcela"),
+        Index("cartaoId")
     ]
 )
 data class Lancamento(

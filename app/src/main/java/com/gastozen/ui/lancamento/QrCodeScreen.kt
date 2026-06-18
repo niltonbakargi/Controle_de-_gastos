@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.gastozen.data.model.CartaoCredito
 import com.gastozen.data.model.TipoPagamento
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -39,6 +40,7 @@ fun QrCodeScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val cartoes by viewModel.cartoes.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var scanning by remember { mutableStateOf(true) }
     var cameraPermissionGranted by remember {
@@ -76,7 +78,7 @@ fun QrCodeScreen(
                 title = { Text("Ler QR Code NF-e") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Voltar")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar")
                     }
                 }
             )
@@ -154,8 +156,9 @@ fun QrCodeScreen(
                 is QrCodeUiState.NfeSumario -> {
                     NfeSumarioCard(
                         nota = state.nota,
-                        onConfirmar = { tipoPagamento ->
-                            viewModel.confirmarNota(state.nota, tipoPagamento, null)
+                        cartoes = cartoes,
+                        onConfirmar = { tipoPagamento, cartaoId ->
+                            viewModel.confirmarNota(state.nota, tipoPagamento, null, cartaoId)
                         },
                         onCancelar = { scanning = true; viewModel.resetar() },
                         modifier = Modifier.align(Alignment.BottomCenter)
@@ -168,14 +171,18 @@ fun QrCodeScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NfeSumarioCard(
     nota: com.gastozen.util.NotaFiscal,
-    onConfirmar: (TipoPagamento) -> Unit,
+    cartoes: List<CartaoCredito>,
+    onConfirmar: (TipoPagamento, Long?) -> Unit,
     onCancelar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var tipoPagamento by remember { mutableStateOf(TipoPagamento.DINHEIRO) }
+    var cartaoId by remember { mutableStateOf<Long?>(null) }
+    var cartaoExpanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = modifier.padding(16.dp).fillMaxWidth()
@@ -209,16 +216,51 @@ private fun NfeSumarioCard(
                 items(TipoPagamento.values()) { tp ->
                     FilterChip(
                         selected = tipoPagamento == tp,
-                        onClick = { tipoPagamento = tp },
+                        onClick = {
+                            tipoPagamento = tp
+                            if (tp != TipoPagamento.CARTAO_CREDITO) cartaoId = null
+                        },
                         label = { Text(tp.label()) }
                     )
+                }
+            }
+
+            if (tipoPagamento == TipoPagamento.CARTAO_CREDITO && cartoes.isNotEmpty()) {
+                val selectedCartao = cartoes.find { it.id == cartaoId }
+                ExposedDropdownMenuBox(
+                    expanded = cartaoExpanded,
+                    onExpandedChange = { cartaoExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedCartao?.nome ?: "Selecionar cartão",
+                        onValueChange = {},
+                        label = { Text("Cartão de crédito") },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(cartaoExpanded) }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = cartaoExpanded,
+                        onDismissRequest = { cartaoExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Nenhum") },
+                            onClick = { cartaoId = null; cartaoExpanded = false }
+                        )
+                        cartoes.forEach { c ->
+                            DropdownMenuItem(
+                                text = { Text("${c.nome} · Fecha dia ${c.diaFechamento}") },
+                                onClick = { cartaoId = c.id; cartaoExpanded = false }
+                            )
+                        }
+                    }
                 }
             }
 
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { onConfirmar(tipoPagamento) },
+                    onClick = { onConfirmar(tipoPagamento, cartaoId) },
                     modifier = Modifier.weight(1f)
                 ) { Text("Salvar") }
                 OutlinedButton(

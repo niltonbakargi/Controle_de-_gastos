@@ -52,7 +52,7 @@ class AppViewModelFactory(
                 LancamentoViewModel(criarUseCase, contaRepo, categoriaRepo, recorrenteRepo, cartaoRepo) as T
 
             modelClass.isAssignableFrom(QrCodeViewModel::class.java) ->
-                QrCodeViewModel(categoriaRepo, regraRepo, produtoRepo, criarUseCase, regraUseCase) as T
+                QrCodeViewModel(categoriaRepo, regraRepo, produtoRepo, criarUseCase, regraUseCase, cartaoRepo) as T
 
             modelClass.isAssignableFrom(CategoriasViewModel::class.java) ->
                 CategoriasViewModel(categoriaRepo) as T

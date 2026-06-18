@@ -71,3 +71,19 @@ class RecorrenteRepository(private val dao: RecorrenteDao) {
     suspend fun update(recorrente: Recorrente) = dao.update(recorrente)
     suspend fun delete(recorrente: Recorrente) = dao.delete(recorrente)
 }
+
+class DespesaFixaRepository(private val dao: DespesaFixaDao) {
+    fun getAllAtivas(): Flow<List<DespesaFixa>> = dao.getAllAtivas()
+    fun getAll(): Flow<List<DespesaFixa>> = dao.getAll()
+    suspend fun insert(d: DespesaFixa) = dao.insert(d)
+    suspend fun update(d: DespesaFixa) = dao.update(d)
+    suspend fun delete(d: DespesaFixa) = dao.delete(d)
+}
+
+class PagamentoDespesaFixaRepository(private val dao: PagamentoDespesaFixaDao) {
+    fun getDoMes(mes: Int, ano: Int): Flow<List<PagamentoDespesaFixa>> = dao.getDoMes(mes, ano)
+    suspend fun find(despesaFixaId: Long, mes: Int, ano: Int) = dao.find(despesaFixaId, mes, ano)
+    suspend fun insert(p: PagamentoDespesaFixa) = dao.insert(p)
+    suspend fun update(p: PagamentoDespesaFixa) = dao.update(p)
+    suspend fun deleteById(id: Long) = dao.deleteById(id)
+}

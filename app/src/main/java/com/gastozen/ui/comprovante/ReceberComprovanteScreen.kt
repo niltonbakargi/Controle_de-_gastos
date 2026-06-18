@@ -15,6 +15,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gastozen.data.model.Categoria
+import com.gastozen.data.model.DespesaFixa
 import com.gastozen.data.model.TipoLancamento
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -27,6 +28,7 @@ fun ReceberComprovanteScreen(
     val form by viewModel.form.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val categorias by viewModel.categorias.collectAsStateWithLifecycle()
+    val despesasFixasPendentes by viewModel.despesasFixasPendentes.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState) {
@@ -57,9 +59,7 @@ fun ReceberComprovanteScreen(
 
         if (uiState is ComprovanteUiState.Processing) {
             Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -82,35 +82,45 @@ fun ReceberComprovanteScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // ── Entrada / Saída ─────────────────────────────────────────────
-            Text("Tipo de lançamento", style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-
+            Text(
+                "Tipo de lançamento",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = form.tipo == TipoLancamento.RECEITA,
                     onClick = { viewModel.updateTipo(TipoLancamento.RECEITA) },
                     label = { Text("Entrada") },
-                    leadingIcon = {
-                        Icon(Icons.Default.ArrowDownward, null,
-                            modifier = Modifier.size(16.dp))
-                    }
+                    leadingIcon = { Icon(Icons.Default.ArrowDownward, null, Modifier.size(16.dp)) }
                 )
                 FilterChip(
                     selected = form.tipo == TipoLancamento.DEBITO,
                     onClick = { viewModel.updateTipo(TipoLancamento.DEBITO) },
                     label = { Text("Saída") },
-                    leadingIcon = {
-                        Icon(Icons.Default.ArrowUpward, null,
-                            modifier = Modifier.size(16.dp))
-                    }
+                    leadingIcon = { Icon(Icons.Default.ArrowUpward, null, Modifier.size(16.dp)) }
                 )
             }
 
-            // ── Categoria (só para Saída) ───────────────────────────────────
-            if (form.tipo == TipoLancamento.DEBITO && categorias.isNotEmpty()) {
-                Text("Categoria", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // ── Vincular a despesa fixa (somente Saída) ─────────────────────
+            if (form.tipo == TipoLancamento.DEBITO && despesasFixasPendentes.isNotEmpty()) {
+                DespesaFixaDropdown(
+                    despesas = despesasFixasPendentes,
+                    selectedId = form.despesaFixaId,
+                    onSelect = viewModel::updateDespesaFixa
+                )
+            }
 
+            // ── Categoria (somente Saída sem despesa fixa vinculada) ─────────
+            if (form.tipo == TipoLancamento.DEBITO
+                && form.despesaFixaId == null
+                && categorias.isNotEmpty()
+            ) {
+                Text(
+                    "Categoria",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -121,10 +131,10 @@ fun ReceberComprovanteScreen(
                         label = { Text("Nenhuma") }
                     )
                     categorias.forEach { cat ->
-                        CategoriaChip(
-                            cat = cat,
+                        FilterChip(
                             selected = form.categoriaId == cat.id,
-                            onClick = { viewModel.updateCategoria(cat.id) }
+                            onClick = { viewModel.updateCategoria(cat.id) },
+                            label = { Text(cat.nome) }
                         )
                     }
                 }
@@ -140,7 +150,7 @@ fun ReceberComprovanteScreen(
                 leadingIcon = { Icon(Icons.Default.Description, null) }
             )
 
-            // ── Valor ─────────────────────────────────────────────────────
+            // ── Valor ──────────────────────────────────────────────────────
             OutlinedTextField(
                 value = form.valor,
                 onValueChange = viewModel::updateValor,
@@ -169,11 +179,38 @@ fun ReceberComprovanteScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CategoriaChip(cat: Categoria, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(cat.nome) }
-    )
+private fun DespesaFixaDropdown(
+    despesas: List<DespesaFixa>,
+    selectedId: Long?,
+    onSelect: (Long?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = despesas.find { it.id == selectedId }
+
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected?.let { "${it.nome} — R$ ${"%.2f".format(it.valor)}" }
+                ?: "Não vincular",
+            onValueChange = {},
+            label = { Text("Despesa fixa (boleto)") },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            readOnly = true,
+            leadingIcon = { Icon(Icons.Default.Receipt, null) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Não vincular") },
+                onClick = { onSelect(null); expanded = false }
+            )
+            despesas.forEach { d ->
+                DropdownMenuItem(
+                    text = { Text("${d.nome} — R$ ${"%.2f".format(d.valor)} · Vence dia ${d.diaVencimento}") },
+                    onClick = { onSelect(d.id); expanded = false }
+                )
+            }
+        }
+    }
 }

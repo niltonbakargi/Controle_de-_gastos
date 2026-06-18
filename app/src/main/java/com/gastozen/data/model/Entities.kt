@@ -107,6 +107,55 @@ data class ProdutoComprado(
     val data: Long = System.currentTimeMillis()
 )
 
+// ── Despesa Fixa ───────────────────────────────────────────────────────────────
+// Conta fixa mensal (internet, energia, pensão, parcela, etc.)
+@Entity(
+    tableName = "despesas_fixas",
+    foreignKeys = [ForeignKey(
+        entity = Categoria::class,
+        parentColumns = ["id"],
+        childColumns = ["categoriaId"],
+        onDelete = ForeignKey.SET_NULL
+    )],
+    indices = [Index("categoriaId")]
+)
+data class DespesaFixa(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val nome: String,
+    val valor: Double,
+    val diaVencimento: Int,       // 1-31
+    val categoriaId: Long? = null,
+    val ativa: Boolean = true,
+    val observacao: String = ""
+)
+
+// ── Pagamento de Despesa Fixa ──────────────────────────────────────────────────
+// Registro do pagamento de uma despesa fixa em determinado mês/ano.
+@Entity(
+    tableName = "pagamentos_despesa_fixa",
+    foreignKeys = [ForeignKey(
+        entity = DespesaFixa::class,
+        parentColumns = ["id"],
+        childColumns = ["despesaFixaId"],
+        onDelete = ForeignKey.CASCADE
+    )],
+    indices = [
+        Index("despesaFixaId"),
+        Index(value = ["despesaFixaId", "mes", "ano"], unique = true)
+    ]
+)
+data class PagamentoDespesaFixa(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val despesaFixaId: Long,
+    val mes: Int,
+    val ano: Int,
+    val valorPago: Double? = null,
+    val dataPagamento: Long? = null,
+    val pago: Boolean = false,
+    val comprovantePath: String? = null,  // caminho local do boleto/comprovante
+    val lancamentoId: Long? = null        // lançamento gerado no pagamento
+)
+
 // ── Regra de Categoria ─────────────────────────────────────────────────────────
 @Entity(
     tableName = "regras_categoria",

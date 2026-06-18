@@ -19,9 +19,11 @@ import kotlinx.coroutines.launch
         Lancamento::class,
         ProdutoComprado::class,
         RegraCategoria::class,
-        Recorrente::class
+        Recorrente::class,
+        DespesaFixa::class,
+        PagamentoDespesaFixa::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -33,6 +35,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun produtoCompradoDao(): ProdutoCompradoDao
     abstract fun regraCategoriaDao(): RegraCategoriaDao
     abstract fun recorrenteDao(): RecorrenteDao
+    abstract fun despesaFixaDao(): DespesaFixaDao
+    abstract fun pagamentoDespesaFixaDao(): PagamentoDespesaFixaDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -75,6 +79,42 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Migração 2→3: tabelas de despesas fixas e pagamentos
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `despesas_fixas` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `nome` TEXT NOT NULL,
+                        `valor` REAL NOT NULL,
+                        `diaVencimento` INTEGER NOT NULL,
+                        `categoriaId` INTEGER,
+                        `ativa` INTEGER NOT NULL DEFAULT 1,
+                        `observacao` TEXT NOT NULL DEFAULT '',
+                        FOREIGN KEY(`categoriaId`) REFERENCES `categorias`(`id`) ON DELETE SET NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_despesas_fixas_categoriaId` ON `despesas_fixas` (`categoriaId`)")
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `pagamentos_despesa_fixa` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `despesaFixaId` INTEGER NOT NULL,
+                        `mes` INTEGER NOT NULL,
+                        `ano` INTEGER NOT NULL,
+                        `valorPago` REAL,
+                        `dataPagamento` INTEGER,
+                        `pago` INTEGER NOT NULL DEFAULT 0,
+                        `comprovantePath` TEXT,
+                        `lancamentoId` INTEGER,
+                        FOREIGN KEY(`despesaFixaId`) REFERENCES `despesas_fixas`(`id`) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_pagamentos_despesa_fixa_despesaFixaId` ON `pagamentos_despesa_fixa` (`despesaFixaId`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_pagamentos_unico` ON `pagamentos_despesa_fixa` (`despesaFixaId`, `mes`, `ano`)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
@@ -87,7 +127,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 "gastozen.db"
             )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

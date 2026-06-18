@@ -8,6 +8,7 @@ import com.gastozen.data.repository.*
 import com.gastozen.domain.usecase.*
 import com.gastozen.ui.categorias.CategoriasViewModel
 import com.gastozen.ui.comprovante.ReceberComprovanteViewModel
+import com.gastozen.ui.despesasfixas.DespesasFixasViewModel
 import com.gastozen.ui.configuracoes.ConfiguracoesViewModel
 import com.gastozen.ui.configuracoes.RecorrentesViewModel
 import com.gastozen.ui.dashboard.DashboardViewModel
@@ -30,6 +31,8 @@ class AppViewModelFactory(
     private val produtoRepo    by lazy { ProdutoCompradoRepository(db.produtoCompradoDao()) }
     private val regraRepo      by lazy { RegraCategoriaRepository(db.regraCategoriaDao()) }
     private val recorrenteRepo by lazy { RecorrenteRepository(db.recorrenteDao()) }
+    private val despesaFixaRepo by lazy { DespesaFixaRepository(db.despesaFixaDao()) }
+    private val pagamentoDespesaRepo by lazy { PagamentoDespesaFixaRepository(db.pagamentoDespesaFixaDao()) }
 
     private val criarUseCase  by lazy { CriarLancamentoUseCase(lancamentoRepo, produtoRepo) }
     private val regraUseCase  by lazy { SalvarRegraCategoriaUseCase(regraRepo) }
@@ -66,7 +69,15 @@ class AppViewModelFactory(
                 ProdutosCompradosViewModel(produtoRepo) as T
 
             modelClass.isAssignableFrom(ReceberComprovanteViewModel::class.java) ->
-                ReceberComprovanteViewModel(application, categoriaRepo, criarUseCase) as T
+                ReceberComprovanteViewModel(
+                    application, categoriaRepo, criarUseCase,
+                    despesaFixaRepo, pagamentoDespesaRepo
+                ) as T
+
+            modelClass.isAssignableFrom(DespesasFixasViewModel::class.java) ->
+                DespesasFixasViewModel(
+                    despesaFixaRepo, pagamentoDespesaRepo, categoriaRepo, lancamentoRepo
+                ) as T
 
             else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
         }

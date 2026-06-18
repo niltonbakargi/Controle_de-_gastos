@@ -23,6 +23,8 @@ import com.gastozen.ui.historico.HistoricoScreen
 import com.gastozen.ui.historico.HistoricoViewModel
 import com.gastozen.ui.comprovante.ReceberComprovanteScreen
 import com.gastozen.ui.comprovante.ReceberComprovanteViewModel
+import com.gastozen.ui.despesasfixas.DespesasFixasScreen
+import com.gastozen.ui.despesasfixas.DespesasFixasViewModel
 import com.gastozen.ui.lancamento.ClassificarProdutosScreen
 import com.gastozen.ui.lancamento.LancamentoScreen
 import com.gastozen.ui.lancamento.LancamentoViewModel
@@ -46,6 +48,7 @@ object Routes {
     const val CLASSIFICAR_PRODUTOS   = "classificar_produtos/{lancamentoId}"
     const val GASTOS_CATEGORIA       = "gastos_categoria/{categoriaId}/{year}/{month}"
     const val RECEBER_COMPROVANTE    = "receber_comprovante"
+    const val DESPESAS_FIXAS         = "despesas_fixas"
 
     fun classificarProdutos(lancamentoId: Long) = "classificar_produtos/$lancamentoId"
     fun gastosCategoria(categoriaId: Long, year: Int, month: Int) =
@@ -189,6 +192,14 @@ fun MainNavGraph(
         composable(Routes.RECEBER_COMPROVANTE) {
             val vm: ReceberComprovanteViewModel = viewModel(factory = factory)
             ReceberComprovanteScreen(
+                viewModel = vm,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.DESPESAS_FIXAS) {
+            val vm: DespesasFixasViewModel = viewModel(factory = factory)
+            DespesasFixasScreen(
                 viewModel = vm,
                 onBack = { navController.popBackStack() }
             )

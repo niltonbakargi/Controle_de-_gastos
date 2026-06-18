@@ -98,10 +98,11 @@ fun GastoZenApp(
     val currentRoute = backStack?.destination?.route
 
     val bottomItems = listOf(
-        Triple(Routes.DASHBOARD,    Icons.Default.Home,     "Início"),
-        Triple(Routes.HISTORICO,    Icons.Default.History,  "Histórico"),
-        Triple(Routes.METAS,        Icons.Default.Flag,     "Metas"),
-        Triple(Routes.CONFIGURACOES,Icons.Default.Settings, "Config")
+        Triple(Routes.DASHBOARD,      Icons.Default.Home,           "Início"),
+        Triple(Routes.HISTORICO,      Icons.Default.History,        "Histórico"),
+        Triple(Routes.DESPESAS_FIXAS, Icons.Default.Receipt,        "Fixas"),
+        Triple(Routes.METAS,          Icons.Default.Flag,           "Metas"),
+        Triple(Routes.CONFIGURACOES,  Icons.Default.Settings,       "Config")
     )
 
     val showBottomBar = currentRoute in bottomItems.map { it.first }

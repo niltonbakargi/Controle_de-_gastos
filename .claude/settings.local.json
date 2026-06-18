@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(cmd.exe /c 'dir \"C:\\\\Users\\\\Acer\\\\AppData\\\\Local\\\\Android\"' 2>&1)",
+      "Bash(cmd.exe /c 'dir C:\\\\Users\\\\Acer\\\\AppData\\\\Local' 2>&1 | head -40)",
+      "Bash(powershell.exe -Command \"Get-ChildItem 'D:\\\\Android' | Format-Table Name\" 2>&1)",
+      "Bash(./gradlew assembleDebug 2>&1)",
+      "Bash(./gradlew -g \"D:/Android/gradle_home\" assembleDebug 2>&1 | tail -15)",
+      "Bash(./gradlew assembleDebug --no-daemon 2>&1)"
+    ]
+  }
+}

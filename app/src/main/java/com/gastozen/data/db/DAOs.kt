@@ -227,6 +227,44 @@ interface ProdutoCompradoDao {
     suspend fun deleteByLancamento(lancamentoId: Long)
 }
 
+// ── DespesaFixaDao ────────────────────────────────────────────────────────────
+@Dao
+interface DespesaFixaDao {
+    @Query("SELECT * FROM despesas_fixas WHERE ativa = 1 ORDER BY diaVencimento ASC")
+    fun getAllAtivas(): Flow<List<DespesaFixa>>
+
+    @Query("SELECT * FROM despesas_fixas ORDER BY diaVencimento ASC")
+    fun getAll(): Flow<List<DespesaFixa>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(d: DespesaFixa): Long
+
+    @Update
+    suspend fun update(d: DespesaFixa)
+
+    @Delete
+    suspend fun delete(d: DespesaFixa)
+}
+
+// ── PagamentoDespesaFixaDao ────────────────────────────────────────────────────
+@Dao
+interface PagamentoDespesaFixaDao {
+    @Query("SELECT * FROM pagamentos_despesa_fixa WHERE mes = :mes AND ano = :ano")
+    fun getDoMes(mes: Int, ano: Int): Flow<List<PagamentoDespesaFixa>>
+
+    @Query("SELECT * FROM pagamentos_despesa_fixa WHERE despesaFixaId = :id AND mes = :mes AND ano = :ano LIMIT 1")
+    suspend fun find(id: Long, mes: Int, ano: Int): PagamentoDespesaFixa?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(p: PagamentoDespesaFixa): Long
+
+    @Update
+    suspend fun update(p: PagamentoDespesaFixa)
+
+    @Query("DELETE FROM pagamentos_despesa_fixa WHERE id = :id")
+    suspend fun deleteById(id: Long)
+}
+
 // ── RegraCategoriaDao ──────────────────────────────────────────────────────────
 @Dao
 interface RegraCategoriaDao {

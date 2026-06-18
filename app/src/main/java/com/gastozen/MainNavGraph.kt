@@ -21,6 +21,8 @@ import com.gastozen.ui.dashboard.DashboardViewModel
 import com.gastozen.ui.dashboard.GastosCategoriaScreen
 import com.gastozen.ui.historico.HistoricoScreen
 import com.gastozen.ui.historico.HistoricoViewModel
+import com.gastozen.ui.comprovante.ReceberComprovanteScreen
+import com.gastozen.ui.comprovante.ReceberComprovanteViewModel
 import com.gastozen.ui.lancamento.ClassificarProdutosScreen
 import com.gastozen.ui.lancamento.LancamentoScreen
 import com.gastozen.ui.lancamento.LancamentoViewModel
@@ -43,6 +45,7 @@ object Routes {
     const val PRODUTOS_COMPRADOS     = "produtos_comprados"
     const val CLASSIFICAR_PRODUTOS   = "classificar_produtos/{lancamentoId}"
     const val GASTOS_CATEGORIA       = "gastos_categoria/{categoriaId}/{year}/{month}"
+    const val RECEBER_COMPROVANTE    = "receber_comprovante"
 
     fun classificarProdutos(lancamentoId: Long) = "classificar_produtos/$lancamentoId"
     fun gastosCategoria(categoriaId: Long, year: Int, month: Int) =
@@ -178,6 +181,14 @@ fun MainNavGraph(
         composable(Routes.RECORRENTES) {
             val vm: RecorrentesViewModel = viewModel(factory = factory)
             RecorrentesScreen(
+                viewModel = vm,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.RECEBER_COMPROVANTE) {
+            val vm: ReceberComprovanteViewModel = viewModel(factory = factory)
+            ReceberComprovanteScreen(
                 viewModel = vm,
                 onBack = { navController.popBackStack() }
             )

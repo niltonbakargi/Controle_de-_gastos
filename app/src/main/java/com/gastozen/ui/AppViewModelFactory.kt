@@ -1,11 +1,13 @@
 package com.gastozen.ui
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.gastozen.data.db.AppDatabase
 import com.gastozen.data.repository.*
 import com.gastozen.domain.usecase.*
 import com.gastozen.ui.categorias.CategoriasViewModel
+import com.gastozen.ui.comprovante.ReceberComprovanteViewModel
 import com.gastozen.ui.configuracoes.ConfiguracoesViewModel
 import com.gastozen.ui.configuracoes.RecorrentesViewModel
 import com.gastozen.ui.dashboard.DashboardViewModel
@@ -17,7 +19,10 @@ import com.gastozen.ui.lancamento.QrCodeViewModel
 import com.gastozen.ui.metas.MetasViewModel
 import com.gastozen.ui.produtos.ProdutosCompradosViewModel
 
-class AppViewModelFactory(private val db: AppDatabase) : ViewModelProvider.Factory {
+class AppViewModelFactory(
+    private val db: AppDatabase,
+    private val application: Application
+) : ViewModelProvider.Factory {
 
     private val contaRepo      by lazy { ContaRepository(db.contaDao()) }
     private val categoriaRepo  by lazy { CategoriaRepository(db.categoriaDao()) }
@@ -59,6 +64,9 @@ class AppViewModelFactory(private val db: AppDatabase) : ViewModelProvider.Facto
 
             modelClass.isAssignableFrom(ProdutosCompradosViewModel::class.java) ->
                 ProdutosCompradosViewModel(produtoRepo) as T
+
+            modelClass.isAssignableFrom(ReceberComprovanteViewModel::class.java) ->
+                ReceberComprovanteViewModel(application, categoriaRepo, criarUseCase) as T
 
             else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
         }

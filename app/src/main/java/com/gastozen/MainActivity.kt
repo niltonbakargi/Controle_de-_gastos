@@ -17,6 +17,7 @@ import com.gastozen.data.db.AppDatabase
 import com.gastozen.ui.AppViewModelFactory
 import com.gastozen.ui.theme.GastoZenTheme
 import com.gastozen.util.NotificationHelper
+import com.gastozen.util.PendingComprovante
 import com.gastozen.util.PendingPix
 import com.gastozen.util.PixReceiptParser
 import com.gastozen.worker.RecorrenteWorker
@@ -25,14 +26,15 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var factory: AppViewModelFactory
 
-    // Flag para saber se há PIX pronto para navegar
-    private var pixPendente = false
+    // Flags observáveis pelo Compose — garantem recomposição via onNewIntent também
+    private var pixPendente by mutableStateOf(false)
+    private var comprovantePendente by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val db = AppDatabase.getInstance(this)
-        factory = AppViewModelFactory(db)
+        factory = AppViewModelFactory(db, application)
         NotificationHelper.createChannels(this)
         RecorrenteWorker.schedule(this)
 
@@ -43,7 +45,9 @@ class MainActivity : ComponentActivity() {
                 GastoZenApp(
                     factory = factory,
                     pixPendente = pixPendente,
-                    onPixHandled = { pixPendente = false }
+                    onPixHandled = { pixPendente = false },
+                    comprovantePendente = comprovantePendente,
+                    onComprovanteHandled = { comprovantePendente = false }
                 )
             }
         }
@@ -56,13 +60,27 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIncomingIntent(intent: Intent?) {
         if (intent?.action != Intent.ACTION_SEND) return
-        if (intent.type != "text/plain") return
 
-        val texto = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
-        val recibo = PixReceiptParser.parse(texto) ?: return
-
-        PendingPix.set(recibo)
-        pixPendente = true
+        when {
+            intent.type == "text/plain" -> {
+                val texto = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
+                val recibo = PixReceiptParser.parse(texto) ?: return
+                PendingPix.set(recibo)
+                pixPendente = true
+            }
+            intent.type?.startsWith("image/") == true -> {
+                @Suppress("DEPRECATION")
+                val uri = intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM) ?: return
+                PendingComprovante.set(PendingComprovante.Content.Imagem(uri))
+                comprovantePendente = true
+            }
+            intent.type == "application/pdf" -> {
+                @Suppress("DEPRECATION")
+                val uri = intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM) ?: return
+                PendingComprovante.set(PendingComprovante.Content.Pdf(uri))
+                comprovantePendente = true
+            }
+        }
     }
 }
 
@@ -71,7 +89,9 @@ class MainActivity : ComponentActivity() {
 fun GastoZenApp(
     factory: AppViewModelFactory,
     pixPendente: Boolean,
-    onPixHandled: () -> Unit
+    onPixHandled: () -> Unit,
+    comprovantePendente: Boolean,
+    onComprovanteHandled: () -> Unit
 ) {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
@@ -91,6 +111,14 @@ fun GastoZenApp(
         if (pixPendente) {
             navController.navigate(Routes.NOVO_LANCAMENTO)
             onPixHandled()
+        }
+    }
+
+    // Navega para a tela de comprovante (imagem/PDF)
+    LaunchedEffect(comprovantePendente) {
+        if (comprovantePendente) {
+            navController.navigate(Routes.RECEBER_COMPROVANTE)
+            onComprovanteHandled()
         }
     }
 

@@ -38,11 +38,18 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
-            <!-- Receber compartilhamento de imagem (comprovante PIX imagem) -->
+            <!-- Receber compartilhamento de imagem (comprovante PIX imagem / WhatsApp) -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
+            </intent-filter>
+
+            <!-- Receber compartilhamento de PDF (comprovante em PDF) -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
             </intent-filter>
         </activity>
 

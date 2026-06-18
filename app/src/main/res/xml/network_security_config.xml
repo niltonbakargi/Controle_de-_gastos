@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow cleartext for SEFAZ state endpoints that may use HTTP -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Federal -->
+        <domain includeSubdomains="true">www.nfe.fazenda.gov.br</domain>
+        <domain includeSubdomains="true">nfe.fazenda.gov.br</domain>
+        <!-- SP -->
+        <domain includeSubdomains="true">nfe.fazenda.sp.gov.br</domain>
+        <domain includeSubdomains="true">www.nfce.fazenda.sp.gov.br</domain>
+        <!-- RJ -->
+        <domain includeSubdomains="true">nfce.sefaz.rj.gov.br</domain>
+        <!-- MG -->
+        <domain includeSubdomains="true">nfce.sefaz.mg.gov.br</domain>
+        <!-- MS -->
+        <domain includeSubdomains="true">www.dfe.ms.gov.br</domain>
+        <domain includeSubdomains="true">dfe.ms.gov.br</domain>
+        <!-- RS -->
+        <domain includeSubdomains="true">www.sefaz.rs.gov.br</domain>
+        <domain includeSubdomains="true">nfce.sefaz.rs.gov.br</domain>
+        <!-- PR -->
+        <domain includeSubdomains="true">nfce.sefa.pr.gov.br</domain>
+        <domain includeSubdomains="true">www.sefa.pr.gov.br</domain>
+        <!-- BA -->
+        <domain includeSubdomains="true">nfe.sefaz.ba.gov.br</domain>
+        <!-- PE -->
+        <domain includeSubdomains="true">nfce.sefaz.pe.gov.br</domain>
+        <!-- CE -->
+        <domain includeSubdomains="true">nfce.sefaz.ce.gov.br</domain>
+        <!-- GO -->
+        <domain includeSubdomains="true">nfe.sefaz.go.gov.br</domain>
+        <!-- MT -->
+        <domain includeSubdomains="true">nfce.sefaz.mt.gov.br</domain>
+        <!-- PA -->
+        <domain includeSubdomains="true">nfce.sefa.pa.gov.br</domain>
+        <!-- AM -->
+        <domain includeSubdomains="true">sistemas.sefaz.am.gov.br</domain>
+        <!-- MA -->
+        <domain includeSubdomains="true">nfe.sefaz.ma.gov.br</domain>
+        <!-- SC -->
+        <domain includeSubdomains="true">nfce.sefaz.sc.gov.br</domain>
+        <!-- ES -->
+        <domain includeSubdomains="true">nfce.sefaz.es.gov.br</domain>
+        <!-- RN -->
+        <domain includeSubdomains="true">nfce.set.rn.gov.br</domain>
+        <!-- PI -->
+        <domain includeSubdomains="true">nfce.sefaz.pi.gov.br</domain>
+        <!-- AL -->
+        <domain includeSubdomains="true">nfce.sefaz.al.gov.br</domain>
+        <!-- DF -->
+        <domain includeSubdomains="true">dec.fazenda.df.gov.br</domain>
+    </domain-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Wallet icon representing budget control -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,36H38c-3.31,0 -6,2.69 -6,6v24c0,3.31 2.69,6 6,6h32c3.31,0 6,-2.69 6,-6V42C76,38.69 73.31,36 70,36z
+        M70,66H38V54h32V66z M70,48H38v-6h32V48z
+        M64,60h-4v4h4V60z" />
+</vector>

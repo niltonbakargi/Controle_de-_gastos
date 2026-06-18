@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GastoZen</string>
+    <string name="dashboard">Início</string>
+    <string name="historico">Histórico</string>
+    <string name="metas">Metas</string>
+    <string name="configuracoes">Configurações</string>
+    <string name="novo_lancamento">Novo Lançamento</string>
+    <string name="saldo_do_mes">Saldo do Mês</string>
+    <string name="receitas">Receitas</string>
+    <string name="despesas">Despesas</string>
+    <string name="a_vencer">A vencer</string>
+    <string name="categorias">Categorias</string>
+    <string name="widget_label">GastoZen — Saldo do Mês</string>
+</resources>

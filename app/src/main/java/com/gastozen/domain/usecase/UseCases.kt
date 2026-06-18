@@ -18,8 +18,10 @@ class ObterDashboardUseCase(
 }
 
 class CriarLancamentoUseCase(
-    private val lancamentoRepo: LancamentoRepository
+    private val lancamentoRepo: LancamentoRepository,
+    private val produtoRepo: ProdutoCompradoRepository? = null
 ) {
+    /** Salva um lançamento simples (sem produtos NF-e). */
     suspend fun executar(lancamento: Lancamento): Long {
         return if (lancamento.totalParcelas > 1 && lancamento.tipo == TipoLancamento.CREDITO) {
             val grupoId = UUID.randomUUID().toString()
@@ -36,6 +38,22 @@ class CriarLancamentoUseCase(
         } else {
             lancamentoRepo.insert(lancamento)
         }
+    }
+
+    /**
+     * Salva um lançamento de nota fiscal: cria UM único Lancamento com o valor
+     * total e armazena cada produto em ProdutoComprado.
+     * Retorna o id do Lancamento criado.
+     */
+    suspend fun executarNfe(
+        lancamento: Lancamento,
+        produtos: List<ProdutoComprado>
+    ): Long {
+        val lancamentoId = lancamentoRepo.insert(lancamento)
+        if (produtos.isNotEmpty()) {
+            produtoRepo?.insertAll(produtos.map { it.copy(lancamentoId = lancamentoId) })
+        }
+        return lancamentoId
     }
 }
 
@@ -76,5 +94,22 @@ class SalvarRegraCategoriaUseCase(
             }
         }
         return null
+    }
+}
+
+class ClassificarProdutoUseCase(
+    private val produtoRepo: ProdutoCompradoRepository,
+    private val regraUseCase: SalvarRegraCategoriaUseCase
+) {
+    /**
+     * Atribui categoria a um produto comprado e salva a regra para uso futuro.
+     */
+    suspend fun executar(produto: ProdutoCompradoComDetalhes, categoriaId: Long) {
+        produtoRepo.updateCategoria(produto.id, categoriaId)
+        regraUseCase.executar(
+            palavraChave = produto.nome.split(" ").firstOrNull { it.length >= 3 },
+            ncm = produto.ncm.takeIf { it.isNotBlank() },
+            categoriaId = categoriaId
+        )
     }
 }

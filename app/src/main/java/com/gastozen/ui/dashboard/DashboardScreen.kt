@@ -1,20 +1,26 @@
 package com.gastozen.ui.dashboard
 
+import android.graphics.Color as AndroidColor
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.gastozen.data.model.GastoPorCategoria
 import com.gastozen.data.model.LancamentoComDetalhes
 import com.gastozen.data.model.TipoLancamento
 import com.gastozen.util.CurrencyUtils
@@ -27,6 +33,8 @@ fun DashboardScreen(
     onNovoLancamento: () -> Unit,
     onVerLancamento: (Long) -> Unit,
     onQrCode: () -> Unit,
+    onProdutosComprados: () -> Unit = {},
+    onCategoria: (categoriaId: Long, year: Int, month: Int) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -38,6 +46,9 @@ fun DashboardScreen(
             TopAppBar(
                 title = { Text("GastoZen") },
                 actions = {
+                    IconButton(onClick = onProdutosComprados) {
+                        Icon(Icons.Default.ShoppingCart, contentDescription = "Produtos Comprados")
+                    }
                     IconButton(onClick = onQrCode) {
                         Icon(Icons.Default.QrCodeScanner, contentDescription = "Ler QR Code")
                     }
@@ -60,7 +71,6 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Filtro de mês
             MesSelectorRow(
                 filtro = filtro,
                 onAnterior = viewModel::mesAnterior,
@@ -83,34 +93,23 @@ fun DashboardScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Cards de resumo
-                        item {
-                            ResumoCards(state)
-                        }
+                        item { ResumoCards(state) }
 
-                        // Gráfico por categoria
+                        // ── Dashboard de Categorias ────────────────────────────
                         if (state.gastosPorCategoria.isNotEmpty()) {
                             item {
-                                Card(modifier = Modifier.fillMaxWidth()) {
-                                    Column(Modifier.padding(16.dp)) {
-                                        Text(
-                                            "Gastos por Categoria",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(Modifier.height(8.dp))
-                                        state.gastosPorCategoria.forEach { gasto ->
-                                            val pct = if (state.resumo.totalDespesas > 0)
-                                                (gasto.total / state.resumo.totalDespesas).toFloat()
-                                            else 0f
-                                            CategoriaProgressRow(gasto.categoriaNome, gasto.total, pct, gasto.categoriaCorHex)
-                                        }
+                                // usa a soma das categorias como total (inclui produtos NF-e)
+                                val totalCategorias = state.gastosPorCategoria.sumOf { it.total }
+                                DashboardCategorias(
+                                    gastos = state.gastosPorCategoria,
+                                    totalDespesas = totalCategorias,
+                                    onCategoria = { catId ->
+                                        onCategoria(catId, filtro.year, filtro.month)
                                     }
-                                }
+                                )
                             }
                         }
 
-                        // Últimos lançamentos
                         item {
                             Text(
                                 "Últimos lançamentos",
@@ -133,12 +132,133 @@ fun DashboardScreen(
     }
 }
 
+// ── Dashboard de categorias ────────────────────────────────────────────────────
+
 @Composable
-private fun MesSelectorRow(
-    filtro: FiltroMes,
-    onAnterior: () -> Unit,
-    onSeguinte: () -> Unit
+private fun DashboardCategorias(
+    gastos: List<GastoPorCategoria>,
+    totalDespesas: Double,
+    onCategoria: (Long) -> Unit
 ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Gastos por Categoria",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "${gastos.size} categorias",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Barra empilhada de cores (mini gráfico)
+            if (totalDespesas > 0) {
+                Spacer(Modifier.height(8.dp))
+                BarraEmpilhada(gastos, totalDespesas)
+                Spacer(Modifier.height(8.dp))
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            gastos.forEach { gasto ->
+                CategoriaRow(
+                    gasto = gasto,
+                    totalDespesas = totalDespesas,
+                    onClick = { onCategoria(gasto.categoriaId) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BarraEmpilhada(gastos: List<GastoPorCategoria>, total: Double) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(10.dp)
+            .clip(RoundedCornerShape(5.dp))
+    ) {
+        gastos.forEach { gasto ->
+            val pct = if (total > 0) (gasto.total / total).toFloat() else 0f
+            val cor = try { Color(AndroidColor.parseColor(gasto.categoriaCorHex)) }
+                      catch (_: Exception) { Color.Gray }
+            Box(modifier = Modifier.weight(pct.coerceAtLeast(0.001f)).fillMaxHeight()
+                .background(cor))
+        }
+    }
+}
+
+@Composable
+private fun CategoriaRow(
+    gasto: GastoPorCategoria,
+    totalDespesas: Double,
+    onClick: () -> Unit
+) {
+    val pct = if (totalDespesas > 0) (gasto.total / totalDespesas).toFloat() else 0f
+    val animPct by animateFloatAsState(targetValue = pct, label = "cat_prog")
+    val cor = try { Color(AndroidColor.parseColor(gasto.categoriaCorHex)) }
+              catch (_: Exception) { MaterialTheme.colorScheme.primary }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // Bolinha colorida
+        Box(Modifier.size(12.dp).clip(CircleShape).background(cor))
+
+        // Nome e barra
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(gasto.categoriaNome, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "${(pct * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            LinearProgressIndicator(
+                progress = { animPct },
+                modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
+                color = cor,
+                trackColor = cor.copy(alpha = 0.15f)
+            )
+        }
+
+        // Valor + seta
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                CurrencyUtils.format(gasto.total),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// ── Componentes existentes ─────────────────────────────────────────────────────
+
+@Composable
+private fun MesSelectorRow(filtro: FiltroMes, onAnterior: () -> Unit, onSeguinte: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -164,7 +284,6 @@ private fun MesSelectorRow(
 @Composable
 private fun ResumoCards(state: DashboardUiState.Success) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Saldo principal
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -188,7 +307,6 @@ private fun ResumoCards(state: DashboardUiState.Success) {
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Receitas
             Card(modifier = Modifier.weight(1f)) {
                 Column(Modifier.padding(12.dp)) {
                     Text("Receitas", style = MaterialTheme.typography.bodySmall)
@@ -200,7 +318,6 @@ private fun ResumoCards(state: DashboardUiState.Success) {
                     )
                 }
             }
-            // Despesas
             Card(modifier = Modifier.weight(1f)) {
                 Column(Modifier.padding(12.dp)) {
                     Text("Despesas", style = MaterialTheme.typography.bodySmall)
@@ -229,22 +346,6 @@ private fun ResumoCards(state: DashboardUiState.Success) {
     }
 }
 
-@Composable
-private fun CategoriaProgressRow(nome: String, valor: Double, pct: Float, corHex: String) {
-    val animPct by animateFloatAsState(targetValue = pct, label = "progress")
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(nome, style = MaterialTheme.typography.bodyMedium)
-            Text(CurrencyUtils.format(valor), style = MaterialTheme.typography.bodyMedium)
-        }
-        LinearProgressIndicator(
-            progress = { animPct },
-            modifier = Modifier.fillMaxWidth(),
-            color = try { Color(android.graphics.Color.parseColor(corHex)) } catch (e: Exception) { MaterialTheme.colorScheme.primary }
-        )
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LancamentoCard(
@@ -254,10 +355,7 @@ private fun LancamentoCard(
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else false
+            if (value == SwipeToDismissBoxValue.EndToStart) { onDelete(); true } else false
         }
     )
 
@@ -271,17 +369,16 @@ private fun LancamentoCard(
                     .padding(end = 16.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.onErrorContainer)
+                Icon(Icons.Default.Delete, contentDescription = "Excluir",
+                    tint = MaterialTheme.colorScheme.onErrorContainer)
             }
         }
     ) {
         Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(lancamento.descricao, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(lancamento.descricao, style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold)
                     Text(
                         buildString {
                             lancamento.categoriaNome?.let { append(it) }

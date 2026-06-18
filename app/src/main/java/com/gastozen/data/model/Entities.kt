@@ -30,6 +30,7 @@ data class Categoria(
 
 // ── Lançamento ─────────────────────────────────────────────────────────────────
 enum class TipoLancamento { DEBITO, CREDITO, RECEITA }
+enum class TipoPagamento  { DINHEIRO, CARTAO_DEBITO, CARTAO_CREDITO, PIX, OUTROS }
 
 @Entity(
     tableName = "lancamentos",
@@ -60,6 +61,7 @@ data class Lancamento(
     val valor: Double,
     val data: Long = System.currentTimeMillis(),
     val tipo: TipoLancamento = TipoLancamento.DEBITO,
+    val tipoPagamento: TipoPagamento = TipoPagamento.DINHEIRO,
     val contaId: Long? = null,
     val categoriaId: Long? = null,
     val parcelaAtual: Int = 1,
@@ -68,7 +70,41 @@ data class Lancamento(
     val recorrente: Boolean = false,
     val observacao: String = "",
     val fotoPath: String? = null,
-    val grupoParcela: String? = null  // UUID to group installments
+    val grupoParcela: String? = null,
+    val desconto: Double = 0.0,     // desconto rastreado da NF-e
+    val nfeCnpj: String? = null     // CNPJ do emitente (NF-e)
+)
+
+// ── Produto Comprado ────────────────────────────────────────────────────────────
+// Armazena cada item da nota fiscal; linked ao único Lancamento da compra.
+@Entity(
+    tableName = "produtos_comprados",
+    foreignKeys = [
+        ForeignKey(
+            entity = Lancamento::class,
+            parentColumns = ["id"],
+            childColumns = ["lancamentoId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = Categoria::class,
+            parentColumns = ["id"],
+            childColumns = ["categoriaId"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
+    indices = [Index("lancamentoId"), Index("categoriaId"), Index("data")]
+)
+data class ProdutoComprado(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val lancamentoId: Long,
+    val nome: String,
+    val ncm: String = "",
+    val quantidade: Double = 1.0,
+    val valorUnitario: Double = 0.0,
+    val valorTotal: Double,
+    val categoriaId: Long? = null,
+    val data: Long = System.currentTimeMillis()
 )
 
 // ── Regra de Categoria ─────────────────────────────────────────────────────────
@@ -138,3 +174,18 @@ data class ResumoMensal(
 ) {
     val saldo: Double get() = totalReceitas - totalDespesas
 }
+
+data class ProdutoCompradoComDetalhes(
+    val id: Long,
+    val lancamentoId: Long,
+    val nome: String,
+    val ncm: String,
+    val quantidade: Double,
+    val valorUnitario: Double,
+    val valorTotal: Double,
+    val categoriaId: Long?,
+    val data: Long,
+    val categoriaNome: String?,
+    val categoriaCorHex: String?,
+    val categoriaIcone: String?
+)

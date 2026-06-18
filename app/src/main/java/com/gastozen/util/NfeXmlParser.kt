@@ -6,12 +6,15 @@ import org.xmlpull.v1.XmlPullParserFactory
 data class ProdutoNfe(
     val nome: String,
     val ncm: String,
-    val valor: Double
+    val quantidade: Double,
+    val valorUnitario: Double,
+    val valor: Double          // valor total do item (quantidade * valorUnitario ± ajustes)
 )
 
 data class NotaFiscal(
     val produtos: List<ProdutoNfe>,
     val valorTotal: Double,
+    val desconto: Double,      // vDesc da nota (campo rastreado da NF-e)
     val dataEmissao: String,
     val cnpjEmitente: String
 )
@@ -51,11 +54,14 @@ object NfeXmlParser {
 
         val produtos = mutableListOf<ProdutoNfe>()
         var valorTotal = 0.0
+        var desconto = 0.0
         var dataEmissao = ""
         var cnpjEmitente = ""
 
         var nomeProd = ""
         var ncmProd = ""
+        var qtdProd = 1.0
+        var valorUnitProd = 0.0
         var valorProd = 0.0
         var inProd = false
         var inTotal = false
@@ -67,22 +73,25 @@ object NfeXmlParser {
             when (eventType) {
                 XmlPullParser.START_TAG -> {
                     when (tagName) {
-                        "prod" -> { inProd = true; nomeProd = ""; ncmProd = ""; valorProd = 0.0 }
+                        "prod"  -> { inProd = true; nomeProd = ""; ncmProd = ""; qtdProd = 1.0; valorUnitProd = 0.0; valorProd = 0.0 }
                         "total" -> inTotal = true
-                        "emit" -> inEmit = true
-                        "xProd" -> if (inProd) nomeProd = parser.nextText()
-                        "NCM"  -> if (inProd) ncmProd = parser.nextText()
-                        "vProd" -> if (inProd) valorProd = parser.nextText().toDoubleOrNull() ?: 0.0
-                        "vNF"  -> if (inTotal) valorTotal = parser.nextText().toDoubleOrNull() ?: 0.0
-                        "dhEmi" -> if (!inProd && !inEmit) dataEmissao = parser.nextText()
-                        "CNPJ" -> if (inEmit) cnpjEmitente = parser.nextText()
+                        "emit"  -> inEmit = true
+                        "xProd"  -> if (inProd) nomeProd = parser.nextText()
+                        "NCM"    -> if (inProd) ncmProd = parser.nextText()
+                        "qCom"   -> if (inProd) qtdProd = parser.nextText().toDoubleOrNull() ?: 1.0
+                        "vUnCom" -> if (inProd) valorUnitProd = parser.nextText().toDoubleOrNull() ?: 0.0
+                        "vProd"  -> if (inProd) valorProd = parser.nextText().toDoubleOrNull() ?: 0.0
+                        "vNF"    -> if (inTotal) valorTotal = parser.nextText().toDoubleOrNull() ?: 0.0
+                        "vDesc"  -> if (inTotal) desconto = parser.nextText().toDoubleOrNull() ?: 0.0
+                        "dhEmi"  -> if (!inProd && !inEmit) dataEmissao = parser.nextText()
+                        "CNPJ"   -> if (inEmit) cnpjEmitente = parser.nextText()
                     }
                 }
                 XmlPullParser.END_TAG -> {
                     when (tagName) {
                         "prod"  -> {
                             if (inProd && nomeProd.isNotBlank()) {
-                                produtos.add(ProdutoNfe(nomeProd, ncmProd, valorProd))
+                                produtos.add(ProdutoNfe(nomeProd, ncmProd, qtdProd, valorUnitProd, valorProd))
                             }
                             inProd = false
                         }
@@ -93,6 +102,6 @@ object NfeXmlParser {
             }
             eventType = parser.next()
         }
-        return NotaFiscal(produtos, valorTotal, dataEmissao, cnpjEmitente)
+        return NotaFiscal(produtos, valorTotal, desconto, dataEmissao, cnpjEmitente)
     }
 }

@@ -22,6 +22,7 @@ data class LancamentoFormState(
     val valor: String = "",
     val data: Long = System.currentTimeMillis(),
     val tipo: TipoLancamento = TipoLancamento.DEBITO,
+    val tipoPagamento: TipoPagamento = TipoPagamento.DINHEIRO,
     val categoriaId: Long? = null,
     val contaId: Long? = null,
     val observacao: String = "",
@@ -54,6 +55,7 @@ class LancamentoViewModel(
     fun updateValor(v: String) = _form.update { it.copy(valor = v) }
     fun updateData(v: Long) = _form.update { it.copy(data = v) }
     fun updateTipo(v: TipoLancamento) = _form.update { it.copy(tipo = v) }
+    fun updateTipoPagamento(v: TipoPagamento) = _form.update { it.copy(tipoPagamento = v) }
     fun updateCategoria(v: Long?) = _form.update { it.copy(categoriaId = v) }
     fun updateConta(v: Long?) = _form.update { it.copy(contaId = v) }
     fun updateObservacao(v: String) = _form.update { it.copy(observacao = v) }
@@ -67,7 +69,8 @@ class LancamentoViewModel(
             it.copy(
                 valor = valor.toString(),
                 descricao = descricao,
-                tipo = TipoLancamento.DEBITO
+                tipo = TipoLancamento.DEBITO,
+                tipoPagamento = TipoPagamento.PIX
             )
         }
     }
@@ -92,6 +95,7 @@ class LancamentoViewModel(
                     valor = valor,
                     data = f.data,
                     tipo = f.tipo,
+                    tipoPagamento = f.tipoPagamento,
                     categoriaId = f.categoriaId,
                     contaId = f.contaId,
                     observacao = f.observacao,

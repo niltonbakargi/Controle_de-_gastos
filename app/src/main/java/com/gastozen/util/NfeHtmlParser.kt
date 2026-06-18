@@ -24,16 +24,13 @@ object NfeHtmlParser {
         val produtos = mutableListOf<ProdutoNfe>()
 
         // ── Estratégia 1: Layout DFe/MS — tabela #tabResult ───────────────────
-        // <tr id="Item + N"> com <span class="txtTit"> e <span class="valor">
         val itemRows = doc.select("tr[id^=Item]")
         if (itemRows.isNotEmpty()) {
             for (row in itemRows) {
-                val nome = row.selectFirst("span.txtTit")?.text()?.trim()
-                    ?: continue
-                val valorText = row.selectFirst("span.valor")?.text()?.trim()
-                    ?: continue
+                val nome = row.selectFirst("span.txtTit")?.text()?.trim() ?: continue
+                val valorText = row.selectFirst("span.valor")?.text()?.trim() ?: continue
                 val valor = valorText.parseMoeda() ?: continue
-                if (valor > 0) produtos.add(ProdutoNfe(nome, "", valor))
+                if (valor > 0) produtos.add(ProdutoNfe(nome, "", 1.0, valor, valor))
             }
         }
 
@@ -49,7 +46,7 @@ object NfeHtmlParser {
                     ?: row.select("td").lastOrNull()?.text()
                     ?: continue
                 val valor = valorText.parseMoeda() ?: continue
-                if (valor > 0) produtos.add(ProdutoNfe(nome, "", valor))
+                if (valor > 0) produtos.add(ProdutoNfe(nome, "", 1.0, valor, valor))
             }
         }
 
@@ -61,19 +58,22 @@ object NfeHtmlParser {
                 val nome = cells.maxByOrNull { it.text().length }?.text()?.trim()
                     ?.takeIf { it.length > 2 } ?: continue
                 val valor = cells.reversed().firstNotNullOfOrNull { it.text().parseMoeda() } ?: continue
-                if (valor > 0) produtos.add(ProdutoNfe(nome, "", valor))
+                if (valor > 0) produtos.add(ProdutoNfe(nome, "", 1.0, valor, valor))
             }
         }
 
-        // ── Total ─────────────────────────────────────────────────────────────
-        // Layout DFe/MS: .totalNumb.txtMax = "Valor a pagar"
-        // Fallback: última ocorrência de .totalNumb ou soma dos produtos
+        // ── Total e Desconto ──────────────────────────────────────────────────
         val valorTotal =
             doc.selectFirst(".totalNumb.txtMax")?.text()?.parseMoeda()
                 ?: doc.select(".totalNumb").lastOrNull()?.text()?.parseMoeda()
                 ?: doc.select("[id*=vNF], [id*=valorTotal], [class*=total-nf]")
                     .lastOrNull()?.text()?.parseMoeda()
                 ?: produtos.sumOf { it.valor }
+
+        // Tenta extrair desconto do HTML (vDesc ou campo similar)
+        val desconto =
+            doc.select("[id*=vDesc], [class*=desconto], [class*=discount]")
+                .firstOrNull()?.text()?.parseMoeda() ?: 0.0
 
         if (produtos.isEmpty()) {
             throw Exception(
@@ -82,7 +82,7 @@ object NfeHtmlParser {
             )
         }
 
-        return NotaFiscal(produtos, valorTotal, dataEmissao, cnpjEmitente)
+        return NotaFiscal(produtos, valorTotal, desconto, dataEmissao, cnpjEmitente)
     }
 
     /** Converte "R$ 1.234,56" ou "1.234,56" para Double. */

@@ -25,6 +25,9 @@ class LancamentoRepository(private val dao: LancamentoDao) {
     fun getLancamentosComDetalhes(inicio: Long, fim: Long) =
         dao.getLancamentosComDetalhes(inicio, fim)
 
+    fun getLancamentosPorCategoria(categoriaId: Long, inicio: Long, fim: Long) =
+        dao.getLancamentosPorCategoria(categoriaId, inicio, fim)
+
     fun buscar(query: String) = dao.buscar(query)
     fun getUltimos10() = dao.getUltimos10()
     fun getGastosPorCategoria(inicio: Long, fim: Long) = dao.getGastosPorCategoria(inicio, fim)
@@ -44,8 +47,17 @@ class LancamentoRepository(private val dao: LancamentoDao) {
     suspend fun getComDetalhesById(id: Long) = dao.getComDetalhesById(id)
 }
 
+class ProdutoCompradoRepository(private val dao: ProdutoCompradoDao) {
+    suspend fun insertAll(produtos: List<ProdutoComprado>) = dao.insertAll(produtos)
+    suspend fun getByLancamento(lancamentoId: Long) = dao.getByLancamento(lancamentoId)
+    suspend fun getSemCategoria(lancamentoId: Long) = dao.getSemCategoria(lancamentoId)
+    fun getByPeriodo(inicio: Long, fim: Long) = dao.getByPeriodo(inicio, fim)
+    fun getPorCategoria(categoriaId: Long, inicio: Long, fim: Long) = dao.getPorCategoria(categoriaId, inicio, fim)
+    suspend fun updateCategoria(id: Long, categoriaId: Long) = dao.updateCategoria(id, categoriaId)
+}
+
 class RegraCategoriaRepository(private val dao: RegraCategoriaDao) {
-    fun getAll(): Flow<List<RegraCategoria>> = dao.getAll()
+    fun getAll() = dao.getAll()
     suspend fun findByKeyword(keyword: String) = dao.findByKeyword(keyword)
     suspend fun findByNcm(ncm: String) = dao.findByNcm(ncm)
     suspend fun insert(regra: RegraCategoria) = dao.insert(regra)

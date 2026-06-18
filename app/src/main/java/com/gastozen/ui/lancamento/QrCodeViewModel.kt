@@ -2,35 +2,37 @@ package com.gastozen.ui.lancamento
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.gastozen.data.model.Categoria
+import com.gastozen.data.model.*
 import com.gastozen.data.repository.CategoriaRepository
-import com.gastozen.data.repository.LancamentoRepository
+import com.gastozen.data.repository.ProdutoCompradoRepository
 import com.gastozen.data.repository.RegraCategoriaRepository
 import com.gastozen.domain.usecase.CriarLancamentoUseCase
 import com.gastozen.domain.usecase.SalvarRegraCategoriaUseCase
-import com.gastozen.util.NfeXmlParser
 import com.gastozen.util.NotaFiscal
-import com.gastozen.util.ProdutoNfe
 import com.gastozen.util.QrCodeParser
-import com.gastozen.data.model.Lancamento
-import com.gastozen.data.model.TipoLancamento
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 sealed class QrCodeUiState {
     object Idle : QrCodeUiState()
     object Loading : QrCodeUiState()
-    data class ProdutosSemCategoria(
-        val nota: NotaFiscal,
-        val semCategoria: List<ProdutoNfe>
+
+    /** NF-e lida com sucesso — aguardando confirmação do usuário (tipoPagamento etc.) */
+    data class NfeSumario(val nota: NotaFiscal) : QrCodeUiState()
+
+    /** Lançamento salvo; [semCategoria] lista produtos que precisam de classificação */
+    data class NfeCarregada(
+        val lancamentoId: Long,
+        val semCategoria: List<ProdutoCompradoComDetalhes>
     ) : QrCodeUiState()
-    data class NfeCarregada(val nota: NotaFiscal) : QrCodeUiState()
+
     data class Error(val message: String, val url: String = "") : QrCodeUiState()
 }
 
 class QrCodeViewModel(
     private val categoriaRepo: CategoriaRepository,
     private val regraRepo: RegraCategoriaRepository,
+    private val produtoRepo: ProdutoCompradoRepository,
     private val criarUseCase: CriarLancamentoUseCase,
     private val regraUseCase: SalvarRegraCategoriaUseCase
 ) : ViewModel() {
@@ -46,16 +48,7 @@ class QrCodeViewModel(
             _uiState.value = QrCodeUiState.Loading
             QrCodeParser.fetchNotaFiscal(url).fold(
                 onSuccess = { nota ->
-                    val semCategoria = mutableListOf<ProdutoNfe>()
-                    nota.produtos.forEach { produto ->
-                        val categoriaId = regraUseCase.findCategoria(produto.nome, produto.ncm, regraRepo)
-                        if (categoriaId == null) semCategoria.add(produto)
-                    }
-                    if (semCategoria.isEmpty()) {
-                        lançarNota(nota)
-                    } else {
-                        _uiState.value = QrCodeUiState.ProdutosSemCategoria(nota, semCategoria)
-                    }
+                    _uiState.value = QrCodeUiState.NfeSumario(nota)
                 },
                 onFailure = { e ->
                     _uiState.value = QrCodeUiState.Error(e.message ?: "Erro ao processar nota", url)
@@ -64,37 +57,54 @@ class QrCodeViewModel(
         }
     }
 
-    fun salvarRegrasELançar(nota: NotaFiscal, mapeamentos: Map<String, Long>) {
+    /**
+     * Confirmado pelo usuário: salva UM Lancamento com o valor total e
+     * persiste cada produto em ProdutoComprado.
+     */
+    fun confirmarNota(
+        nota: NotaFiscal,
+        tipoPagamento: TipoPagamento,
+        contaId: Long?
+    ) {
         viewModelScope.launch {
-            mapeamentos.forEach { (nomeProduto, categoriaId) ->
-                regraUseCase.executar(
-                    palavraChave = nomeProduto.split(" ").firstOrNull { it.length >= 3 },
-                    ncm = nota.produtos.find { it.nome == nomeProduto }?.ncm,
-                    categoriaId = categoriaId
-                )
-            }
-            lançarNota(nota)
-        }
-    }
+            _uiState.value = QrCodeUiState.Loading
+            try {
+                val valorLiquido = maxOf(nota.valorTotal - nota.desconto, 0.0)
 
-    private suspend fun lançarNota(nota: NotaFiscal) {
-        nota.produtos.forEach { produto ->
-            val categoriaId = regraUseCase.findCategoria(produto.nome, produto.ncm, regraRepo)
-            criarUseCase.executar(
-                Lancamento(
-                    descricao = produto.nome,
-                    valor = produto.valor,
+                val lancamento = Lancamento(
+                    descricao = "Compra NF-e ${nota.cnpjEmitente.takeLast(8)}",
+                    valor = valorLiquido,
                     tipo = TipoLancamento.DEBITO,
-                    categoriaId = categoriaId,
-                    observacao = "NF-e: ${nota.cnpjEmitente}"
+                    tipoPagamento = tipoPagamento,
+                    contaId = contaId,
+                    desconto = nota.desconto,
+                    nfeCnpj = nota.cnpjEmitente
                 )
-            )
-        }
-        _uiState.value = QrCodeUiState.NfeCarregada(nota)
-    }
 
-    fun salvarSemCategoria(nota: NotaFiscal) {
-        viewModelScope.launch { lançarNota(nota) }
+                // Resolve categorias pelos produtos
+                val produtos = nota.produtos.map { p ->
+                    val categoriaId = regraUseCase.findCategoria(p.nome, p.ncm, regraRepo)
+                    ProdutoComprado(
+                        lancamentoId = 0L, // será preenchido após insert
+                        nome = p.nome,
+                        ncm = p.ncm,
+                        quantidade = p.quantidade,
+                        valorUnitario = p.valorUnitario,
+                        valorTotal = p.valor,
+                        categoriaId = categoriaId
+                    )
+                }
+
+                val lancamentoId = criarUseCase.executarNfe(lancamento, produtos)
+
+                // Busca produtos sem categoria para redirecionar à classificação
+                val semCategoria = produtoRepo.getSemCategoria(lancamentoId)
+                _uiState.value = QrCodeUiState.NfeCarregada(lancamentoId, semCategoria)
+
+            } catch (e: Exception) {
+                _uiState.value = QrCodeUiState.Error(e.message ?: "Erro ao salvar nota")
+            }
+        }
     }
 
     fun resetar() { _uiState.value = QrCodeUiState.Idle }

@@ -18,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gastozen.data.model.Categoria
 import com.gastozen.data.model.Conta
 import com.gastozen.data.model.TipoLancamento
+import com.gastozen.data.model.TipoPagamento
 import com.gastozen.util.DateUtils
 import java.util.Calendar
 
@@ -78,6 +79,12 @@ fun LancamentoScreen(
         ) {
             // Tipo
             TipoSelector(selected = form.tipo, onSelect = viewModel::updateTipo)
+
+            // Forma de pagamento
+            TipoPagamentoSelector(
+                selected = form.tipoPagamento,
+                onSelect = viewModel::updateTipoPagamento
+            )
 
             // Descrição
             OutlinedTextField(
@@ -184,6 +191,32 @@ fun TipoSelector(selected: TipoLancamento, onSelect: (TipoLancamento) -> Unit) {
                     })
                 }
             )
+        }
+    }
+}
+
+@Composable
+fun TipoPagamentoSelector(selected: TipoPagamento, onSelect: (TipoPagamento) -> Unit) {
+    Column {
+        Text("Forma de pagamento", style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TipoPagamento.values().forEach { tp ->
+                FilterChip(
+                    selected = selected == tp,
+                    onClick = { onSelect(tp) },
+                    label = {
+                        Text(when (tp) {
+                            TipoPagamento.DINHEIRO       -> "Dinheiro"
+                            TipoPagamento.CARTAO_DEBITO  -> "Débito"
+                            TipoPagamento.CARTAO_CREDITO -> "Crédito"
+                            TipoPagamento.PIX            -> "PIX"
+                            TipoPagamento.OUTROS         -> "Outros"
+                        })
+                    }
+                )
+            }
         }
     }
 }

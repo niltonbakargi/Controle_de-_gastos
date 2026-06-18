@@ -8,6 +8,8 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -21,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.gastozen.data.model.TipoPagamento
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
@@ -32,6 +35,7 @@ fun QrCodeScreen(
     viewModel: QrCodeViewModel,
     onBack: () -> Unit,
     onNfeDetected: () -> Unit,
+    onClassificarProdutos: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -40,8 +44,7 @@ fun QrCodeScreen(
     var cameraPermissionGranted by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.CAMERA
+                context, Manifest.permission.CAMERA
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         )
     }
@@ -50,16 +53,18 @@ fun QrCodeScreen(
     ) { granted -> cameraPermissionGranted = granted }
 
     LaunchedEffect(Unit) {
-        if (!cameraPermissionGranted) {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
-        }
+        if (!cameraPermissionGranted) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     LaunchedEffect(uiState) {
-        when (uiState) {
+        when (val s = uiState) {
             is QrCodeUiState.NfeCarregada -> {
                 scanning = false
-                onNfeDetected()
+                if (s.semCategoria.isEmpty()) {
+                    onNfeDetected()
+                } else {
+                    onClassificarProdutos(s.lancamentoId)
+                }
             }
             else -> {}
         }
@@ -88,10 +93,7 @@ fun QrCodeScreen(
                     modifier = Modifier.align(Alignment.Center).padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        "Permissão de câmera necessária para ler o QR Code.",
-                        textAlign = TextAlign.Center
-                    )
+                    Text("Permissão de câmera necessária.", textAlign = TextAlign.Center)
                     Spacer(Modifier.height(16.dp))
                     Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
                         Text("Conceder permissão")
@@ -118,11 +120,10 @@ fun QrCodeScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+
                 is QrCodeUiState.Error -> {
                     Card(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(16.dp)
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
                     ) {
                         Column(Modifier.padding(16.dp)) {
                             Text(state.message, color = MaterialTheme.colorScheme.error)
@@ -144,57 +145,97 @@ fun QrCodeScreen(
                                         putExtra(Intent.EXTRA_TEXT, report)
                                     }
                                     context.startActivity(Intent.createChooser(intent, "Reportar erro"))
-                                }) {
-                                    Text("Reportar")
-                                }
+                                }) { Text("Reportar") }
                             }
                         }
                     }
                 }
-                is QrCodeUiState.ProdutosSemCategoria -> {
-                    Card(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(16.dp)
-                            .fillMaxWidth()
-                    ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(
-                                "Nota lida! ${state.nota.produtos.size} produto(s) encontrado(s).",
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "Nenhuma categoria automática encontrada.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            state.semCategoria.take(3).forEach { p ->
-                                Text("• ${p.nome} — R$ ${"%.2f".format(p.valor)}",
-                                    style = MaterialTheme.typography.bodySmall)
-                            }
-                            if (state.semCategoria.size > 3) {
-                                Text("… e mais ${state.semCategoria.size - 3} item(ns)",
-                                    style = MaterialTheme.typography.bodySmall)
-                            }
-                            Spacer(Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = { viewModel.salvarSemCategoria(state.nota) },
-                                    modifier = Modifier.weight(1f)
-                                ) { Text("Salvar assim") }
-                                OutlinedButton(
-                                    onClick = { scanning = true; viewModel.resetar() },
-                                    modifier = Modifier.weight(1f)
-                                ) { Text("Cancelar") }
-                            }
-                        }
-                    }
+
+                is QrCodeUiState.NfeSumario -> {
+                    NfeSumarioCard(
+                        nota = state.nota,
+                        onConfirmar = { tipoPagamento ->
+                            viewModel.confirmarNota(state.nota, tipoPagamento, null)
+                        },
+                        onCancelar = { scanning = true; viewModel.resetar() },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
                 }
+
                 else -> {}
             }
         }
     }
+}
+
+@Composable
+private fun NfeSumarioCard(
+    nota: com.gastozen.util.NotaFiscal,
+    onConfirmar: (TipoPagamento) -> Unit,
+    onCancelar: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var tipoPagamento by remember { mutableStateOf(TipoPagamento.DINHEIRO) }
+
+    Card(
+        modifier = modifier.padding(16.dp).fillMaxWidth()
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "Nota lida! ${nota.produtos.size} produto(s)",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Total NF-e", style = MaterialTheme.typography.bodyMedium)
+                Text("R$ ${"%.2f".format(nota.valorTotal)}", style = MaterialTheme.typography.bodyMedium)
+            }
+            if (nota.desconto > 0) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Desconto", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("- R$ ${"%.2f".format(nota.desconto)}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Valor pago", style = MaterialTheme.typography.bodyMedium)
+                    Text("R$ ${"%.2f".format(maxOf(nota.valorTotal - nota.desconto, 0.0))}")
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+            Text("Forma de pagamento", style = MaterialTheme.typography.labelMedium)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(TipoPagamento.values()) { tp ->
+                    FilterChip(
+                        selected = tipoPagamento == tp,
+                        onClick = { tipoPagamento = tp },
+                        label = { Text(tp.label()) }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onConfirmar(tipoPagamento) },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Salvar") }
+                OutlinedButton(
+                    onClick = onCancelar,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Cancelar") }
+            }
+        }
+    }
+}
+
+private fun TipoPagamento.label() = when (this) {
+    TipoPagamento.DINHEIRO       -> "Dinheiro"
+    TipoPagamento.CARTAO_DEBITO  -> "Débito"
+    TipoPagamento.CARTAO_CREDITO -> "Crédito"
+    TipoPagamento.PIX            -> "PIX"
+    TipoPagamento.OUTROS         -> "Outros"
 }
 
 @Composable
@@ -214,11 +255,9 @@ private fun CameraPreview(
 
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
-
                 val preview = Preview.Builder().build().also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
-
                 val imageAnalysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
@@ -228,8 +267,7 @@ private fun CameraPreview(
                     val mediaImage = imageProxy.image
                     if (mediaImage != null) {
                         val image = InputImage.fromMediaImage(
-                            mediaImage,
-                            imageProxy.imageInfo.rotationDegrees
+                            mediaImage, imageProxy.imageInfo.rotationDegrees
                         )
                         scanner.process(image)
                             .addOnSuccessListener { barcodes ->
@@ -246,10 +284,7 @@ private fun CameraPreview(
 
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview,
-                    imageAnalysis
+                    lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis
                 )
             }, ContextCompat.getMainExecutor(ctx))
 

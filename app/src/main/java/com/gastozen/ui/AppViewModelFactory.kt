@@ -14,6 +14,8 @@ import com.gastozen.ui.configuracoes.RecorrentesViewModel
 import com.gastozen.ui.dashboard.DashboardViewModel
 import com.gastozen.ui.dashboard.GastosCategoriaViewModel
 import com.gastozen.ui.historico.HistoricoViewModel
+import com.gastozen.ui.cartoes.CartoesViewModel
+import com.gastozen.ui.cartoes.FaturaViewModel
 import com.gastozen.ui.lancamento.ClassificarProdutosViewModel
 import com.gastozen.ui.lancamento.LancamentoViewModel
 import com.gastozen.ui.lancamento.QrCodeViewModel
@@ -33,6 +35,8 @@ class AppViewModelFactory(
     private val recorrenteRepo by lazy { RecorrenteRepository(db.recorrenteDao()) }
     private val despesaFixaRepo by lazy { DespesaFixaRepository(db.despesaFixaDao()) }
     private val pagamentoDespesaRepo by lazy { PagamentoDespesaFixaRepository(db.pagamentoDespesaFixaDao()) }
+    private val cartaoRepo by lazy { CartaoCreditoRepository(db.cartaoCreditoDao()) }
+    private val pagamentoFaturaRepo by lazy { PagamentoFaturaRepository(db.pagamentoFaturaDao()) }
 
     private val criarUseCase  by lazy { CriarLancamentoUseCase(lancamentoRepo, produtoRepo) }
     private val regraUseCase  by lazy { SalvarRegraCategoriaUseCase(regraRepo) }
@@ -45,7 +49,7 @@ class AppViewModelFactory(
                 DashboardViewModel(lancamentoRepo) as T
 
             modelClass.isAssignableFrom(LancamentoViewModel::class.java) ->
-                LancamentoViewModel(criarUseCase, contaRepo, categoriaRepo, recorrenteRepo) as T
+                LancamentoViewModel(criarUseCase, contaRepo, categoriaRepo, recorrenteRepo, cartaoRepo) as T
 
             modelClass.isAssignableFrom(QrCodeViewModel::class.java) ->
                 QrCodeViewModel(categoriaRepo, regraRepo, produtoRepo, criarUseCase, regraUseCase) as T
@@ -79,6 +83,9 @@ class AppViewModelFactory(
                     despesaFixaRepo, pagamentoDespesaRepo, categoriaRepo, lancamentoRepo
                 ) as T
 
+            modelClass.isAssignableFrom(CartoesViewModel::class.java) ->
+                CartoesViewModel(cartaoRepo, lancamentoRepo, pagamentoFaturaRepo) as T
+
             else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
         }
     }
@@ -90,4 +97,7 @@ class AppViewModelFactory(
     /** GastosCategoriaViewModel precisa de categoriaId + período */
     fun criarGastosCategoriaViewModel(categoriaId: Long, year: Int, month: Int): GastosCategoriaViewModel =
         GastosCategoriaViewModel(categoriaId, year, month, lancamentoRepo, produtoRepo, categoriaRepo)
+
+    fun criarFaturaViewModel(cartaoId: Long): FaturaViewModel =
+        FaturaViewModel(cartaoId, cartaoRepo, lancamentoRepo, pagamentoFaturaRepo)
 }

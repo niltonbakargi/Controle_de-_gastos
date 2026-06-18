@@ -72,7 +72,10 @@ data class Lancamento(
     val fotoPath: String? = null,
     val grupoParcela: String? = null,
     val desconto: Double = 0.0,     // desconto rastreado da NF-e
-    val nfeCnpj: String? = null     // CNPJ do emitente (NF-e)
+    val nfeCnpj: String? = null,    // CNPJ do emitente (NF-e)
+    val cartaoId: Long? = null,     // qual cartão de crédito foi usado
+    val faturaAno: Int? = null,     // ano da fatura que pertence esta compra
+    val faturaMes: Int? = null      // mês da fatura (1-12)
 )
 
 // ── Produto Comprado ────────────────────────────────────────────────────────────
@@ -154,6 +157,41 @@ data class PagamentoDespesaFixa(
     val pago: Boolean = false,
     val comprovantePath: String? = null,  // caminho local do boleto/comprovante
     val lancamentoId: Long? = null        // lançamento gerado no pagamento
+)
+
+// ── Cartão de Crédito ──────────────────────────────────────────────────────────
+@Entity(tableName = "cartoes_credito")
+data class CartaoCredito(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val nome: String,
+    val diaFechamento: Int,   // dia do mês que a fatura fecha (ex: 5)
+    val diaVencimento: Int,   // dia do mês que a fatura vence (ex: 15)
+    val limite: Double? = null,
+    val corHex: String = "#6200EE"
+)
+
+// ── Pagamento de Fatura ────────────────────────────────────────────────────────
+@Entity(
+    tableName = "pagamentos_fatura",
+    foreignKeys = [ForeignKey(
+        entity = CartaoCredito::class,
+        parentColumns = ["id"],
+        childColumns = ["cartaoId"],
+        onDelete = ForeignKey.CASCADE
+    )],
+    indices = [
+        Index("cartaoId"),
+        Index(value = ["cartaoId", "faturaAno", "faturaMes"], unique = true)
+    ]
+)
+data class PagamentoFatura(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val cartaoId: Long,
+    val faturaAno: Int,
+    val faturaMes: Int,
+    val valorPago: Double? = null,
+    val dataPagamento: Long? = null,
+    val pago: Boolean = false
 )
 
 // ── Regra de Categoria ─────────────────────────────────────────────────────────

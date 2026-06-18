@@ -10,6 +10,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.gastozen.ui.AppViewModelFactory
+import com.gastozen.ui.cartoes.CartoesScreen
+import com.gastozen.ui.cartoes.CartoesViewModel
+import com.gastozen.ui.cartoes.FaturaScreen
 import com.gastozen.ui.categorias.CategoriasScreen
 import com.gastozen.ui.categorias.CategoriasViewModel
 import com.gastozen.ui.configuracoes.ConfiguracoesScreen
@@ -49,8 +52,11 @@ object Routes {
     const val GASTOS_CATEGORIA       = "gastos_categoria/{categoriaId}/{year}/{month}"
     const val RECEBER_COMPROVANTE    = "receber_comprovante"
     const val DESPESAS_FIXAS         = "despesas_fixas"
+    const val CARTOES                = "cartoes"
+    const val FATURA                 = "fatura/{cartaoId}"
 
     fun classificarProdutos(lancamentoId: Long) = "classificar_produtos/$lancamentoId"
+    fun fatura(cartaoId: Long) = "fatura/$cartaoId"
     fun gastosCategoria(categoriaId: Long, year: Int, month: Int) =
         "gastos_categoria/$categoriaId/$year/$month"
 }
@@ -200,6 +206,27 @@ fun MainNavGraph(
         composable(Routes.DESPESAS_FIXAS) {
             val vm: DespesasFixasViewModel = viewModel(factory = factory)
             DespesasFixasScreen(
+                viewModel = vm,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.CARTOES) {
+            val vm: CartoesViewModel = viewModel(factory = factory)
+            CartoesScreen(
+                viewModel = vm,
+                onCartao = { cartaoId -> navController.navigate(Routes.fatura(cartaoId)) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Routes.FATURA,
+            arguments = listOf(navArgument("cartaoId") { type = NavType.LongType })
+        ) { backStack ->
+            val cartaoId = backStack.arguments?.getLong("cartaoId") ?: return@composable
+            val vm = remember(cartaoId) { factory.criarFaturaViewModel(cartaoId) }
+            FaturaScreen(
                 viewModel = vm,
                 onBack = { navController.popBackStack() }
             )

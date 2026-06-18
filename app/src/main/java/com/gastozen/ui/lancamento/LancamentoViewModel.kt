@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.gastozen.data.model.*
 import com.gastozen.data.repository.*
 import com.gastozen.domain.usecase.CriarLancamentoUseCase
+import com.gastozen.util.FaturaUtils
 import com.gastozen.util.PendingPix
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -30,14 +31,16 @@ data class LancamentoFormState(
     val fotoUri: Uri? = null,
     val totalParcelas: Int = 1,
     val dataVencimento: Long? = null,
-    val recorrente: Boolean = false
+    val recorrente: Boolean = false,
+    val cartaoId: Long? = null    // NEW
 )
 
 class LancamentoViewModel(
     private val criarUseCase: CriarLancamentoUseCase,
     private val contaRepo: ContaRepository,
     private val categoriaRepo: CategoriaRepository,
-    private val recorrenteRepo: RecorrenteRepository
+    private val recorrenteRepo: RecorrenteRepository,
+    private val cartaoRepo: CartaoCreditoRepository    // NEW
 ) : ViewModel() {
 
     init {
@@ -58,6 +61,9 @@ class LancamentoViewModel(
     val categorias: StateFlow<List<Categoria>> = categoriaRepo.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val cartoes: StateFlow<List<CartaoCredito>> = cartaoRepo.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _form = MutableStateFlow(LancamentoFormState())
     val form: StateFlow<LancamentoFormState> = _form.asStateFlow()
 
@@ -76,6 +82,7 @@ class LancamentoViewModel(
     fun updateParcelas(v: Int) = _form.update { it.copy(totalParcelas = v) }
     fun updateVencimento(v: Long?) = _form.update { it.copy(dataVencimento = v) }
     fun updateRecorrente(v: Boolean) = _form.update { it.copy(recorrente = v) }
+    fun updateCartao(v: Long?) = _form.update { it.copy(cartaoId = v) }
 
     fun salvar() {
         viewModelScope.launch {
@@ -92,6 +99,17 @@ class LancamentoViewModel(
 
             _uiState.value = LancamentoUiState.Saving
             try {
+                // Compute fatura if a credit card is selected
+                var faturaAno: Int? = null
+                var faturaMes: Int? = null
+                f.cartaoId?.let { cId ->
+                    cartoes.value.find { it.id == cId }?.let { card ->
+                        val (ano, mes) = FaturaUtils.computarFaturaMes(f.data, card.diaFechamento)
+                        faturaAno = ano
+                        faturaMes = mes
+                    }
+                }
+
                 val lancamento = Lancamento(
                     descricao = f.descricao,
                     valor = valor,
@@ -104,7 +122,10 @@ class LancamentoViewModel(
                     fotoPath = f.fotoUri?.toString(),
                     totalParcelas = if (f.tipo == TipoLancamento.CREDITO) f.totalParcelas else 1,
                     dataVencimento = f.dataVencimento,
-                    recorrente = f.recorrente
+                    recorrente = f.recorrente,
+                    cartaoId = f.cartaoId,
+                    faturaAno = faturaAno,
+                    faturaMes = faturaMes
                 )
                 criarUseCase.executar(lancamento)
 

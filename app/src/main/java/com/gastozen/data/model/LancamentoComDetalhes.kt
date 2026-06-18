@@ -27,5 +27,8 @@ data class LancamentoComDetalhes(
     @ColumnInfo(name = "categoriaId")     val categoriaId: Long?,
     @ColumnInfo(name = "categoriaNome")   val categoriaNome: String?,
     @ColumnInfo(name = "categoriaIcone")  val categoriaIcone: String?,
-    @ColumnInfo(name = "categoriaCorHex") val categoriaCorHex: String?
+    @ColumnInfo(name = "categoriaCorHex") val categoriaCorHex: String?,
+    @ColumnInfo(name = "cartaoId")        val cartaoId: Long? = null,
+    @ColumnInfo(name = "faturaAno")       val faturaAno: Int? = null,
+    @ColumnInfo(name = "faturaMes")       val faturaMes: Int? = null
 )

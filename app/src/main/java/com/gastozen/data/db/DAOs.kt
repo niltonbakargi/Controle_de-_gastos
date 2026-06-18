@@ -125,6 +125,20 @@ interface LancamentoDao {
     """)
     fun getGastoCategoriaMes(categoriaId: Long, dataInicio: Long, dataFim: Long): Flow<Double>
 
+    @Query("""
+        SELECT l.*, c.nome as contaNome, cat.nome as categoriaNome,
+               cat.icone as categoriaIcone, cat.corHex as categoriaCorHex
+        FROM lancamentos l
+        LEFT JOIN contas c ON l.contaId = c.id
+        LEFT JOIN categorias cat ON l.categoriaId = cat.id
+        WHERE l.cartaoId = :cartaoId AND l.faturaAno = :faturaAno AND l.faturaMes = :faturaMes
+        ORDER BY l.data ASC
+    """)
+    fun getLancamentosFatura(cartaoId: Long, faturaAno: Int, faturaMes: Int): Flow<List<LancamentoComDetalhes>>
+
+    @Query("SELECT COALESCE(SUM(valor), 0) FROM lancamentos WHERE cartaoId = :cartaoId AND faturaAno = :ano AND faturaMes = :mes")
+    fun getTotalFatura(cartaoId: Long, ano: Int, mes: Int): Flow<Double>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(lancamento: Lancamento): Long
 
@@ -262,6 +276,41 @@ interface PagamentoDespesaFixaDao {
     suspend fun update(p: PagamentoDespesaFixa)
 
     @Query("DELETE FROM pagamentos_despesa_fixa WHERE id = :id")
+    suspend fun deleteById(id: Long)
+}
+
+// ── CartaoCreditoDao ───────────────────────────────────────────────────────────
+@Dao
+interface CartaoCreditoDao {
+    @Query("SELECT * FROM cartoes_credito ORDER BY nome ASC")
+    fun getAll(): Flow<List<CartaoCredito>>
+
+    @Query("SELECT * FROM cartoes_credito WHERE id = :id")
+    suspend fun getById(id: Long): CartaoCredito?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(c: CartaoCredito): Long
+
+    @Update
+    suspend fun update(c: CartaoCredito)
+
+    @Delete
+    suspend fun delete(c: CartaoCredito)
+}
+
+// ── PagamentoFaturaDao ────────────────────────────────────────────────────────
+@Dao
+interface PagamentoFaturaDao {
+    @Query("SELECT * FROM pagamentos_fatura WHERE cartaoId = :cartaoId AND faturaAno = :ano AND faturaMes = :mes LIMIT 1")
+    suspend fun find(cartaoId: Long, ano: Int, mes: Int): PagamentoFatura?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(p: PagamentoFatura): Long
+
+    @Update
+    suspend fun update(p: PagamentoFatura)
+
+    @Query("DELETE FROM pagamentos_fatura WHERE id = :id")
     suspend fun deleteById(id: Long)
 }
 

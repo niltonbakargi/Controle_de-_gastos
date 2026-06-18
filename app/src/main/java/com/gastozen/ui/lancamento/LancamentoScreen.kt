@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gastozen.data.model.Categoria
+import com.gastozen.data.model.CartaoCredito
 import com.gastozen.data.model.Conta
 import com.gastozen.data.model.TipoLancamento
 import com.gastozen.data.model.TipoPagamento
@@ -33,6 +34,7 @@ fun LancamentoScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val contas by viewModel.contas.collectAsStateWithLifecycle()
     val categorias by viewModel.categorias.collectAsStateWithLifecycle()
+    val cartoes by viewModel.cartoes.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -108,6 +110,15 @@ fun LancamentoScreen(
                 selected = form.tipoPagamento,
                 onSelect = viewModel::updateTipoPagamento
             )
+
+            // Cartão de crédito (apenas quando pagamento em cartão de crédito)
+            if (form.tipoPagamento == TipoPagamento.CARTAO_CREDITO && cartoes.isNotEmpty()) {
+                CartaoDropdown(
+                    cartoes = cartoes,
+                    selectedId = form.cartaoId,
+                    onSelect = viewModel::updateCartao
+                )
+            }
 
             // Descrição
             OutlinedTextField(
@@ -298,6 +309,38 @@ fun CategoriaDropdown(
             DropdownMenuItem(text = { Text("Nenhuma") }, onClick = { onSelect(null); expanded = false })
             categorias.forEach { cat ->
                 DropdownMenuItem(text = { Text(cat.nome) }, onClick = { onSelect(cat.id); expanded = false })
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CartaoDropdown(
+    cartoes: List<CartaoCredito>,
+    selectedId: Long?,
+    onSelect: (Long?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = cartoes.find { it.id == selectedId }
+
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected?.nome ?: "Selecionar cartão",
+            onValueChange = {},
+            label = { Text("Cartão de crédito") },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            readOnly = true,
+            leadingIcon = { Icon(Icons.Default.CreditCard, null) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(text = { Text("Nenhum") }, onClick = { onSelect(null); expanded = false })
+            cartoes.forEach { c ->
+                DropdownMenuItem(
+                    text = { Text("${c.nome} · Fecha dia ${c.diaFechamento}") },
+                    onClick = { onSelect(c.id); expanded = false }
+                )
             }
         }
     }

@@ -21,9 +21,11 @@ import kotlinx.coroutines.launch
         RegraCategoria::class,
         Recorrente::class,
         DespesaFixa::class,
-        PagamentoDespesaFixa::class
+        PagamentoDespesaFixa::class,
+        CartaoCredito::class,
+        PagamentoFatura::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -37,6 +39,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun recorrenteDao(): RecorrenteDao
     abstract fun despesaFixaDao(): DespesaFixaDao
     abstract fun pagamentoDespesaFixaDao(): PagamentoDespesaFixaDao
+    abstract fun cartaoCreditoDao(): CartaoCreditoDao
+    abstract fun pagamentoFaturaDao(): PagamentoFaturaDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -115,6 +119,49 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Novas colunas em lancamentos (nullable, sem FK constraint via ALTER TABLE)
+                db.execSQL("ALTER TABLE lancamentos ADD COLUMN cartaoId INTEGER")
+                db.execSQL("ALTER TABLE lancamentos ADD COLUMN faturaAno INTEGER")
+                db.execSQL("ALTER TABLE lancamentos ADD COLUMN faturaMes INTEGER")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lancamentos_cartaoId` ON `lancamentos` (`cartaoId`)")
+
+                // Tabela de cartões de crédito
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `cartoes_credito` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `nome` TEXT NOT NULL,
+                        `diaFechamento` INTEGER NOT NULL,
+                        `diaVencimento` INTEGER NOT NULL,
+                        `limite` REAL,
+                        `corHex` TEXT NOT NULL DEFAULT '#6200EE'
+                    )
+                """.trimIndent())
+
+                // Tabela de pagamentos de fatura
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `pagamentos_fatura` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `cartaoId` INTEGER NOT NULL,
+                        `faturaAno` INTEGER NOT NULL,
+                        `faturaMes` INTEGER NOT NULL,
+                        `valorPago` REAL,
+                        `dataPagamento` INTEGER,
+                        `pago` INTEGER NOT NULL DEFAULT 0,
+                        FOREIGN KEY(`cartaoId`) REFERENCES `cartoes_credito`(`id`) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_pagamentos_fatura_cartaoId` ON `pagamentos_fatura` (`cartaoId`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_pagamentos_fatura_unico` ON `pagamentos_fatura` (`cartaoId`, `faturaAno`, `faturaMes`)")
+
+                // Cartões padrão
+                db.execSQL("INSERT INTO cartoes_credito (nome, diaFechamento, diaVencimento, corHex) VALUES ('Nubank', 3, 10, '#8A05BE')")
+                db.execSQL("INSERT INTO cartoes_credito (nome, diaFechamento, diaVencimento, corHex) VALUES ('C6 Bank', 5, 12, '#222222')")
+                db.execSQL("INSERT INTO cartoes_credito (nome, diaFechamento, diaVencimento, corHex) VALUES ('Mercado Pago', 7, 15, '#009EE3')")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
@@ -127,7 +174,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 "gastozen.db"
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

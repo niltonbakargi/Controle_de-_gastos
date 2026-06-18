@@ -35,6 +35,9 @@ class LancamentoRepository(private val dao: LancamentoDao) {
         dao.getResumoMensal(inicio, fim, agora)
     fun getGastoCategoriaMes(categoriaId: Long, inicio: Long, fim: Long) =
         dao.getGastoCategoriaMes(categoriaId, inicio, fim)
+    fun getLancamentosFatura(cartaoId: Long, faturaAno: Int, faturaMes: Int) =
+        dao.getLancamentosFatura(cartaoId, faturaAno, faturaMes)
+    fun getTotalFatura(cartaoId: Long, ano: Int, mes: Int) = dao.getTotalFatura(cartaoId, ano, mes)
 
     suspend fun insert(lancamento: Lancamento) = dao.insert(lancamento)
     suspend fun insertAll(lancamentos: List<Lancamento>) = dao.insertAll(lancamentos)
@@ -85,5 +88,20 @@ class PagamentoDespesaFixaRepository(private val dao: PagamentoDespesaFixaDao) {
     suspend fun find(despesaFixaId: Long, mes: Int, ano: Int) = dao.find(despesaFixaId, mes, ano)
     suspend fun insert(p: PagamentoDespesaFixa) = dao.insert(p)
     suspend fun update(p: PagamentoDespesaFixa) = dao.update(p)
+    suspend fun deleteById(id: Long) = dao.deleteById(id)
+}
+
+class CartaoCreditoRepository(private val dao: CartaoCreditoDao) {
+    fun getAll(): Flow<List<CartaoCredito>> = dao.getAll()
+    suspend fun getById(id: Long) = dao.getById(id)
+    suspend fun insert(c: CartaoCredito) = dao.insert(c)
+    suspend fun update(c: CartaoCredito) = dao.update(c)
+    suspend fun delete(c: CartaoCredito) = dao.delete(c)
+}
+
+class PagamentoFaturaRepository(private val dao: PagamentoFaturaDao) {
+    suspend fun find(cartaoId: Long, ano: Int, mes: Int) = dao.find(cartaoId, ano, mes)
+    suspend fun insert(p: PagamentoFatura) = dao.insert(p)
+    suspend fun update(p: PagamentoFatura) = dao.update(p)
     suspend fun deleteById(id: Long) = dao.deleteById(id)
 }

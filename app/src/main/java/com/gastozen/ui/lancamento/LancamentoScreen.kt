@@ -77,6 +77,29 @@ fun LancamentoScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Banner PIX compartilhado
+            if (form.tipoPagamento == TipoPagamento.PIX && form.descricao.isNotBlank()) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Payment, null,
+                            modifier = Modifier.size(20.dp))
+                        Text(
+                            "Comprovante PIX lido automaticamente. Confirme a categoria e salve.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
             // Tipo
             TipoSelector(selected = form.tipo, onSelect = viewModel::updateTipo)
 

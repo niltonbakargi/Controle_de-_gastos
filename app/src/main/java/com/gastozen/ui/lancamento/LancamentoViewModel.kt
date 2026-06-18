@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.gastozen.data.model.*
 import com.gastozen.data.repository.*
 import com.gastozen.domain.usecase.CriarLancamentoUseCase
+import com.gastozen.util.PendingPix
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -39,6 +40,18 @@ class LancamentoViewModel(
     private val recorrenteRepo: RecorrenteRepository
 ) : ViewModel() {
 
+    init {
+        // Preenche o formulário automaticamente se veio de um compartilhamento PIX
+        PendingPix.consume()?.let { recibo ->
+            _form.update { it.copy(
+                descricao    = recibo.descricao,
+                valor        = "%.2f".format(recibo.valor).replace(".", ","),
+                tipo         = recibo.tipo,
+                tipoPagamento = recibo.tipoPagamento
+            )}
+        }
+    }
+
     val contas: StateFlow<List<Conta>> = contaRepo.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -63,17 +76,6 @@ class LancamentoViewModel(
     fun updateParcelas(v: Int) = _form.update { it.copy(totalParcelas = v) }
     fun updateVencimento(v: Long?) = _form.update { it.copy(dataVencimento = v) }
     fun updateRecorrente(v: Boolean) = _form.update { it.copy(recorrente = v) }
-
-    fun preencherDoPix(valor: Double, descricao: String) {
-        _form.update {
-            it.copy(
-                valor = valor.toString(),
-                descricao = descricao,
-                tipo = TipoLancamento.DEBITO,
-                tipoPagamento = TipoPagamento.PIX
-            )
-        }
-    }
 
     fun salvar() {
         viewModelScope.launch {
